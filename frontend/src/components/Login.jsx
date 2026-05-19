@@ -3,9 +3,6 @@ import api from '../api'
 
 const EMPTY_REGISTER = {
   name: '', email: '', password: '',
-  email_password: '',
-  smtp_host: '', smtp_port: 587,
-  imap_host: '', imap_port: 993,
 }
 
 export default function Login({ onLogin }) {
@@ -36,11 +33,7 @@ export default function Login({ onLogin }) {
     setError('')
     setLoading(true)
     try {
-      await api.post('/auth/register', {
-        ...regForm,
-        smtp_port: Number(regForm.smtp_port),
-        imap_port: Number(regForm.imap_port),
-      })
+      await api.post('/auth/register', regForm)
       const res = await api.post('/auth/login', { email: regForm.email, password: regForm.password })
       localStorage.setItem('token', res.data.access_token)
       const me = await api.get('/auth/me')
@@ -87,38 +80,8 @@ export default function Login({ onLogin }) {
               <input type="email" value={regForm.email} onChange={setReg('email')} required />
             </div>
             <div className="form-group">
-              <label>App password <span style={{ fontWeight: 400, color: '#9ca3af' }}>(used to log in here)</span></label>
+              <label>Password</label>
               <input type="password" value={regForm.password} onChange={setReg('password')} required />
-            </div>
-
-            <div className="section-label">Email server settings</div>
-            <div className="form-group">
-              <label>Email account password <span style={{ fontWeight: 400, color: '#9ca3af' }}>(for SMTP/IMAP)</span></label>
-              <input type="password" value={regForm.email_password} onChange={setReg('email_password')} required />
-            </div>
-            <div className="form-group">
-              <div className="form-row">
-                <div>
-                  <label>SMTP host</label>
-                  <input placeholder="smtp.gmail.com" value={regForm.smtp_host} onChange={setReg('smtp_host')} required />
-                </div>
-                <div>
-                  <label>Port</label>
-                  <input type="number" value={regForm.smtp_port} onChange={setReg('smtp_port')} required />
-                </div>
-              </div>
-            </div>
-            <div className="form-group">
-              <div className="form-row">
-                <div>
-                  <label>IMAP host</label>
-                  <input placeholder="imap.gmail.com" value={regForm.imap_host} onChange={setReg('imap_host')} required />
-                </div>
-                <div>
-                  <label>Port</label>
-                  <input type="number" value={regForm.imap_port} onChange={setReg('imap_port')} required />
-                </div>
-              </div>
             </div>
             {error && <div className="error-msg">{error}</div>}
             <button className="submit-btn" disabled={loading}>{loading ? 'Creating account…' : 'Create account'}</button>

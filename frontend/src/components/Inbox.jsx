@@ -23,7 +23,6 @@ export default function Inbox({ user, onLogout }) {
   const [emails, setEmails] = useState([])
   const [selected, setSelected] = useState(null)
   const [composing, setComposing] = useState(false)
-  const [syncing, setSyncing] = useState(false)
   const [loadingList, setLoadingList] = useState(false)
 
   const loadEmails = useCallback(async () => {
@@ -42,18 +41,6 @@ export default function Inbox({ user, onLogout }) {
     setSelected(null)
     loadEmails()
   }, [loadEmails])
-
-  const handleSync = async () => {
-    setSyncing(true)
-    try {
-      await api.get(`/mail/sync?folder=${folder}`)
-      await loadEmails()
-    } catch (err) {
-      console.error(err)
-    } finally {
-      setSyncing(false)
-    }
-  }
 
   const handleSelect = async (email) => {
     setSelected(email)
@@ -101,16 +88,13 @@ export default function Inbox({ user, onLogout }) {
       <div className="email-list-panel">
         <div className="panel-header">
           {FOLDERS.find((f) => f.key === folder)?.label}
-          <button className="sync-btn" onClick={handleSync} disabled={syncing}>
-            {syncing ? 'Syncing…' : '↻ Sync'}
-          </button>
         </div>
         <div className="email-list">
           {loadingList ? (
             <div className="loading">Loading…</div>
           ) : emails.length === 0 ? (
             <div className="loading" style={{ padding: '32px 16px', textAlign: 'center' }}>
-              No emails.{folder === 'INBOX' ? ' Click Sync to fetch from server.' : ''}
+              No emails.
             </div>
           ) : (
             emails.map((email) => (
