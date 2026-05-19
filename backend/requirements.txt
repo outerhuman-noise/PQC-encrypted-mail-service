@@ -7,3 +7,5 @@ cryptography
 python-dotenv
 python-multipart
 email-validator
+argon2-cffi
+git+https://github.com/open-quantum-safe/liboqs-python.git
