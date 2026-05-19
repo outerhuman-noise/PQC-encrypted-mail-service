@@ -11,15 +11,30 @@ class User(Base):
     name = Column(String, nullable=False)
     email = Column(String, unique=True, index=True, nullable=False)
     hashed_password = Column(String, nullable=False)
-    encrypted_email_password = Column(String, nullable=True)
-    smtp_host = Column(String, nullable=True)
-    smtp_port = Column(Integer, default=587)
-    imap_host = Column(String, nullable=True)
-    imap_port = Column(Integer, default=993)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     emails = relationship("Email", back_populates="user", cascade="all, delete-orphan")
+    keys = relationship("UserKeys", back_populates="user", cascade="all, delete-orphan")
 
+class UserKeys(Base):
+    __tablename__ = "user_keys"
+
+    id = Column(Integer, primary_key=True, index = True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, unique=True)
+    
+    kem_public_key = Column(Text, nullable=False)
+    kem_private_key_encrypted = Column(Text, nullable=False)
+    kem_private_key_nonce = Column(Text, nullable=False)
+    kem_private_key_salt = Column(Text, nullable=False)
+    
+    sign_public_key = Column(Text, nullable=False)
+    sign_private_key_encrypted = Column(Text, nullable=False)
+    sign_private_key_nonce = Column(Text, nullable=False)
+    sign_private_key_salt = Column(Text, nullable=False)
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    user = relationship("User", back_populates="keys")
 
 class Email(Base):
     __tablename__ = "emails"

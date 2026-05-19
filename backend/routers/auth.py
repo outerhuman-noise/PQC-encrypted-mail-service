@@ -5,7 +5,8 @@ import models
 import schemas
 from auth import create_access_token, get_current_user, hash_password, verify_password
 from database import get_db
-from email_crypto import encrypt_password
+from crypto.key_storage import encrypt_private_key
+from crypto.pqc import generate_kem_keypair, generate_sign_keypair
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -19,13 +20,27 @@ def register(data: schemas.UserCreate, db: Session = Depends(get_db)):
         name=data.name,
         email=data.email,
         hashed_password=hash_password(data.password),
-        encrypted_email_password=encrypt_password(data.email_password),
-        smtp_host=data.smtp_host,
-        smtp_port=data.smtp_port,
-        imap_host=data.imap_host,
-        imap_port=data.imap_port,
     )
     db.add(user)
+    db.flush()  # assigns user.id before we reference it in UserKeys
+
+    kem = generate_kem_keypair()
+    sig = generate_sign_keypair()
+    enc_kem = encrypt_private_key(kem["private_key"], data.password)
+    enc_sig = encrypt_private_key(sig["private_key"], data.password)
+
+    db.add(models.UserKeys(
+        user_id=user.id,
+        kem_public_key=kem["public_key"],
+        kem_private_key_encrypted=enc_kem["encrypted"],
+        kem_private_key_nonce=enc_kem["nonce"],
+        kem_private_key_salt=enc_kem["salt"],
+        sign_public_key=sig["public_key"],
+        sign_private_key_encrypted=enc_sig["encrypted"],
+        sign_private_key_nonce=enc_sig["nonce"],
+        sign_private_key_salt=enc_sig["salt"],
+    ))
+    
     db.commit()
     db.refresh(user)
     return user
