@@ -54,3 +54,12 @@ class SendEmailRequest(BaseModel):
     subject: str
     body: str
     password: str
+
+
+class DecryptRequest(BaseModel):
+    password: str
+
+
+class DecryptResponse(BaseModel):
+    body: str
+    verified: bool
