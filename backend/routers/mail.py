@@ -9,8 +9,8 @@ import schemas
 from auth import get_current_user
 from database import get_db
 from crypto.key_storage import decrypt_private_key
-from crypto.pqc import encapsulate, sign_message
-from crypto.symmetric import encrypt_text
+from crypto.pqc import encapsulate, sign_message, decapsulate, verify_signature
+from crypto.symmetric import encrypt_text, decrypt_text
 
 router = APIRouter(prefix="/mail", tags=["mail"])
 
@@ -52,7 +52,7 @@ def send_mail(
     except Exception:
         raise HTTPException(status_code=401, detail="Could not unlock your signing key. Check your password.")
 
-    kem_result = encapsulate(receiver_keys["kem_public_key"])
+    kem_result = encapsulate(receiver_keys.kem_public_key)
 
     encrypted = encrypt_text(data.body, kem_result["shared_secret"])
 
@@ -93,6 +93,44 @@ def send_mail(
 
     db.commit()
     return {"status": "sent"}
+
+
+@router.post("/{email_id}/decrypt", response_model=schemas.DecryptResponse)
+def decrypt(
+    data: schemas.DecryptRequest,
+    email_id: int,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    email = (db.query(models.Email)
+             .filter(models.Email.id == email_id, models.Email.user_id == current_user.id)
+             .first())
+    
+    if not email:
+        raise HTTPException(status_code=404, detail="Could not find email.")
+    
+    receiver_keys = db.query(models.UserKeys).filter(models.UserKeys.user_id == current_user.id).first()
+
+    sender = db.query(models.User).filter(models.User.email == email.from_addr).first()
+    sender_keys = db.query(models.UserKeys).filter(models.UserKeys.user_id == sender.id).first()
+
+    try:
+        receiver_kem_private = decrypt_private_key(
+            receiver_keys.kem_private_key_encrypted,
+            receiver_keys.kem_private_key_nonce,
+            receiver_keys.kem_private_key_salt,
+            data.password,
+        )
+
+        shared_secret = decapsulate(receiver_kem_private, email.kem_ciphertext)
+        decrypted_body = decrypt_text(email.ciphertext, email.nonce, shared_secret)
+
+        signed_payload = (email.ciphertext + "|" + email.nonce + "|" + email.subject).encode("utf-8")
+        verified = verify_signature(sender_keys.sign_public_key, signed_payload, email.signature)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Could not decrypt or verify message.")
+    
+    return {"body": decrypted_body, "verified": verified}
 
 
 @router.get("/{email_id}", response_model=schemas.EmailResponse)
