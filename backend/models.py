@@ -53,5 +53,9 @@ class Email(Base):
     is_read = Column(Boolean, default=False)
     folder = Column(String, default="INBOX")
     created_at = Column(DateTime, default=datetime.utcnow)
+    ciphertext = Column(Text)
+    nonce = Column(Text)
+    kem_ciphertext = Column(Text)
+    signature = Column(Text)
 
     user = relationship("User", back_populates="emails")

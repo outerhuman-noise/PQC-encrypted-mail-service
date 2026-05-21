@@ -40,6 +40,10 @@ class EmailResponse(BaseModel):
     date: Optional[datetime]
     is_read: bool
     folder: str
+    ciphertext: Optional[str]
+    nonce: Optional[str]
+    kem_ciphertext: Optional[str]
+    signature: Optional[str]
 
     model_config = {"from_attributes": True}
 
@@ -49,3 +53,4 @@ class SendEmailRequest(BaseModel):
     cc: str = ""
     subject: str
     body: str
+    password: str
