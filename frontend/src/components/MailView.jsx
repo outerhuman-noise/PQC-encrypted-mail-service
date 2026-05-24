@@ -15,7 +15,7 @@ export default function MailView({ email, onDelete, onReply }) {
     setError('')
     setDecrypting(true)
     try {
-      const res = await api.post('/mail/${email.id}/decrypt', { password })
+      const res = await api.post(`/mail/${email.id}/decrypt`, { password })
       setDecryptedBody(res.data.body)
       setVerified(res.data.verified)
     } catch (err) {
@@ -37,10 +37,31 @@ export default function MailView({ email, onDelete, onReply }) {
         </div>
       </div>
       <div className="email-view-body">
-        {email.body_text || (email.body_html ? '(HTML email — plain text unavailable)' : '(empty)')}
+        {!email.ciphertext ? (
+          <p>{email.body_text || '(empty)'}</p>
+        ) : decryptedBody ? (
+          <>
+            <p>{decryptedBody}</p>
+            <p>{verified ? 'Signature valid' : 'Signature invalid'}</p>
+          </>
+        ) : (
+          <form onSubmit={handleDecrypt}>
+            {error && <div className='error-msg'>{error}</div>}
+            <input 
+              type="password"
+              value={password} 
+              onChange={(e) => setPassword(e.target.value)} 
+              placeholder="Enter password to decrypt" 
+              required 
+            />
+            <button type="submit" disabled={decrypting}>
+              {decrypting ? 'Decrypting...' : 'Decrypt'}
+            </button>
+          </form>
+        )}
       </div>
       <div className="email-view-actions">
-        <button className="btn" onClick={onReply}>R6yeply</button>
+        <button className="btn" onClick={onReply}>Reply</button>
         <button className="btn btn-danger" onClick={() => onDelete(email.id)}>Delete</button>
       </div>
     </>
