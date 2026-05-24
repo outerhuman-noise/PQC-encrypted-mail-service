@@ -2,7 +2,7 @@ import { useState } from 'react'
 import api from '../api'
 
 export default function Compose({ initialTo = '', initialSubject = '', onClose, onSent }) {
-  const [form, setForm] = useState({ to: initialTo, cc: '', subject: initialSubject, body: '' })
+  const [form, setForm] = useState({ to: initialTo, cc: '', subject: initialSubject, body: '', password: '' })
   const [sending, setSending] = useState(false)
   const [error, setError] = useState('')
 
@@ -48,6 +48,10 @@ export default function Compose({ initialTo = '', initialSubject = '', onClose, 
             onChange={set('body')}
             placeholder="Write your message…"
           />
+          <div className="compose-field">
+            <label>Password</label>
+            <input type="password" value={form.password} onChange={set('password')} placeholder="Password" required />
+          </div>
           <div className="compose-footer">
             <span className="error-msg">{error}</span>
             <button className="send-btn" type="submit" disabled={sending}>
