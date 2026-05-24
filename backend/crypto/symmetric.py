@@ -1,6 +1,6 @@
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 import os
-from app.crypto.encoding import b64, unb64
+from crypto.encoding import b64, unb64
 
 
 def encrypt_text(plaintext: str, key: bytes):
