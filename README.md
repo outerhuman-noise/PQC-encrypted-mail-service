@@ -1,104 +1,222 @@
 # PQC Encrypted Mail Service
 
-A web-based email client built with FastAPI and React. Connects to any standard SMTP/IMAP email provider. Post-quantum cryptography support is planned for a future release.
+A web mail prototype for sending encrypted messages between registered users.
+
+The app uses a FastAPI backend, a React/Vite frontend, SQLite for local storage,
+JWT-based login sessions, and Open Quantum Safe algorithms through
+`liboqs-python`. When a user registers, the backend creates a post-quantum KEM
+key pair and signature key pair for that account. Private keys are encrypted
+with the user's password before they are stored.
+
+Hosted version: https://pqcmail.duckdns.org/
+
+## What It Does
+
+- Register and sign in with a local app account.
+- Generate per-user post-quantum encryption and signing keys.
+- Send encrypted messages to other registered users.
+- Store sent and received messages in SQLite.
+- Decrypt received messages by entering the account password.
+- Verify message signatures after decryption.
+- Mark messages as read and delete messages.
+
+This is an app-to-app encrypted mail system. It does not connect to external
+SMTP or IMAP providers.
+
+## Tech Stack
+
+- Backend: FastAPI, SQLAlchemy, SQLite, JWT auth
+- Frontend: React 18, Vite, Axios
+- Cryptography:
+  - KEM: `ML-KEM-768` by default
+  - Signature: `ML-DSA-65` by default
+  - Message encryption: AES-GCM using the KEM shared secret
+  - Private key storage: password-derived AES-GCM encryption
+- Runtime packaging: Docker Compose
+
+## Project Structure
+
+```text
+backend/
+  main.py                  FastAPI app entry point
+  auth.py                  JWT creation, password hashing, current-user lookup
+  database.py              SQLite database setup
+  models.py                SQLAlchemy User, UserKeys, and Email models
+  schemas.py               Pydantic request/response models
+  routers/
+    auth.py                Register, login, and current-user routes
+    mail.py                List, send, decrypt, read, and delete mail routes
+  crypto/
+    pqc.py                 liboqs KEM/signature helpers
+    key_storage.py         Password-based private key encryption
+    symmetric.py           AES-GCM message encryption
+    encoding.py            Base64 helpers
+
+frontend/
+  src/
+    api.js                 Axios client using Vite proxy routes
+    App.jsx                Auth bootstrap
+    components/
+      Login.jsx            Sign in and registration UI
+      Inbox.jsx            Mailbox layout
+      Compose.jsx          Send message modal
+      MailView.jsx         Message decrypt/read/delete view
+```
 
 ## Prerequisites
 
-- [Docker Desktop](https://www.docker.com/products/docker-desktop/)
+The recommended local setup is Docker because the backend depends on native
+Open Quantum Safe libraries.
 
-That's it. Docker handles Python, Node.js, and all dependencies.
+Install:
 
-## Setup
+- Docker Desktop
+- Git
 
-### 1. Clone the repository
+## Run Locally With Docker
+
+1. Clone the repository.
 
 ```bash
 git clone <repo-url>
-cd PQC-encrypted-mail-service
+cd PQC-encrypted-mail-service-main
 ```
 
-### 2. Create the environment file
+2. Create a backend environment file.
 
 ```bash
-copy backend\.env.example backend\.env
+cd backend
+copy .env.example .env
 ```
 
-Open `backend\.env` and fill in the two required values:
+On macOS/Linux:
+
+```bash
+cd backend
+cp .env.example .env
+```
+
+The example file contains:
 
 ```env
-SECRET_KEY=        # any long random string, e.g. output of: python -c "import secrets; print(secrets.token_hex(32))"
-FERNET_KEY=        # base64 key, e.g. output of: python -c "import secrets, base64; print(base64.urlsafe_b64encode(secrets.token_bytes(32)).decode())"
+SECRET_KEY=replace-this-with-a-long-random-string
+ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=60
+KEM_ALG=ML-KEM-768
+SIG_ALG=ML-DSA-65
 ```
 
-> **What are these?**
-> - `SECRET_KEY` — signs JWT login tokens
-> - `FERNET_KEY` — encrypts your email account password before storing it in the database
+Replace `SECRET_KEY` with a long random value before using the app beyond a
+local demo.
 
-### 3. Start the application
+You can generate a strong `SECRET_KEY` with:
+
+```bash
+python -c "import secrets; print(secrets.token_hex(32))"
+```
+
+3. Start the app from the repository root.
 
 ```bash
 docker compose up --build
 ```
 
-The `--build` flag is only needed the first time (or after changing `requirements.txt` / `package.json`). After that, just:
+4. Open the frontend.
+
+```text
+http://localhost:5173
+```
+
+The backend API runs at:
+
+```text
+http://localhost:8000
+```
+
+FastAPI docs are available at:
+
+```text
+http://localhost:8000/docs
+```
+
+To stop the app:
 
 ```bash
-docker compose up
+docker compose down
 ```
 
-Open **http://localhost:5173** in your browser.
+## Using The App Locally
 
-To stop: press `Ctrl+C`, or run `docker compose down`.
+1. Create at least two accounts, for example `alice@example.com` and
+   `bob@example.com`.
+2. Sign in as one user.
+3. Compose a message to the other registered user's email address.
+4. Enter the sender account password when sending so the app can unlock the
+   signing key.
+5. Sign in as the receiver.
+6. Open the received message and enter the receiver account password to decrypt
+   it.
 
-## Creating an account
+Only users already registered in the app can receive messages.
 
-When registering you will need your email provider's SMTP and IMAP settings. Common providers:
+## Local Data
 
-| Provider | SMTP Host | SMTP Port | IMAP Host | IMAP Port |
-|---|---|---|---|---|
-| Gmail | `smtp.gmail.com` | `587` | `imap.gmail.com` | `993` |
-| Outlook / Hotmail | `smtp-mail.outlook.com` | `587` | `outlook.office365.com` | `993` |
-| Yahoo | `smtp.mail.yahoo.com` | `587` | `imap.mail.yahoo.com` | `993` |
-| iCloud | `smtp.mail.me.com` | `587` | `imap.mail.me.com` | `993` |
+The backend stores data in a SQLite database at:
 
-**Gmail users:** Google blocks direct password login. You must create an [App Password](https://myaccount.google.com/apppasswords) (requires 2FA to be enabled) and use that as your email account password.
-
-There are two separate passwords on the registration form:
-- **App password** — what you use to log in to this web app
-- **Email account password** — your actual email credential used for SMTP/IMAP (stored encrypted)
-
-## Features
-
-- Compose and send emails via SMTP
-- Sync and read emails via IMAP (click **↻ Sync** to fetch latest)
-- Sent folder (tracks emails sent through this app)
-- Unread message badge and read/unread state
-- Reply and delete
-
-## Project structure
-
-```
-backend/          FastAPI application
-  main.py         App entry point
-  models.py       SQLAlchemy models (User, Email)
-  schemas.py      Pydantic request/response schemas
-  auth.py         JWT authentication
-  email_crypto.py Fernet encryption for stored email passwords
-  smtp_service.py Send email via smtplib
-  imap_service.py Fetch email via imaplib
-  routers/
-    auth.py       /auth/register, /auth/login, /auth/me
-    mail.py       /mail/ CRUD + /mail/sync + /mail/send
-
-frontend/         React application (Vite)
-  src/
-    components/
-      Login.jsx   Login and registration form
-      Inbox.jsx   Main three-pane layout
-      MailView.jsx Email detail view
-      Compose.jsx Compose modal
+```text
+backend/mail.db
 ```
 
-## API
+When using Docker Compose, `backend/` is mounted into the backend container, so
+the database file is persisted in the project folder.
 
-The backend API is available at **http://localhost:8000**. Interactive docs are at **http://localhost:8000/docs**.
+To reset local data, stop the containers and delete `backend/mail.db`.
+
+## API Routes
+
+Auth:
+
+- `POST /auth/register`
+- `POST /auth/login`
+- `GET /auth/me`
+
+Mail:
+
+- `GET /mail/?folder=INBOX`
+- `GET /mail/?folder=SENT`
+- `POST /mail/send`
+- `POST /mail/{email_id}/decrypt`
+- `GET /mail/{email_id}`
+- `PATCH /mail/{email_id}/read`
+- `DELETE /mail/{email_id}`
+
+Health check:
+
+- `GET /health`
+
+## Manual Development Notes
+
+Running without Docker is possible, but the backend still needs native liboqs
+support available to Python. If `liboqs-python` imports but cannot find the
+native shared libraries, the app will fail when generating or using keys.
+
+Backend:
+
+```bash
+cd backend
+python -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements.txt
+uvicorn main:app --reload --host 0.0.0.0 --port 8000
+```
+
+Frontend:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+The Vite dev server proxies `/auth`, `/mail`, and `/health` to
+`http://localhost:8000`.
